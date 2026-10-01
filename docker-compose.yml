@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Centralized MySQL Database Persistence
   mysqldb:
     image: mysql:8.0
     container_name: smartticket_mysql
@@ -12,20 +13,183 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - smartticket-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  backend:
-    build: ./backend
-    container_name: smartticket_backend
+  # Redis In-Memory Data Store & Cache Layer
+  redis:
+    image: redis:7-alpine
+    container_name: smartticket_redis
+    restart: always
     ports:
-      - "8080:8080"
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - smartticket-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ Message Broker for Asynchronous Messaging
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: smartticket_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"   # AMQP protocol port
+      - "15672:15672" # Management Web UI
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/smartticketdb?useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - smartticket-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Nginx API Gateway & Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: smartticket_nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - mysqldb
+      - booking-service-1
+      - booking-service-2
+      - seat-service
+    networks:
+      - smartticket-net
+
+  # Seat Service Instance
+  seat-service:
+    build:
+      context: ./services/seat-service
+    container_name: smartticket_seat_service
+    restart: always
+    environment:
+      SERVICE_INSTANCE_ID: SEAT-SERVICE-1
+      DB_HOST: mysqldb
+      DB_PORT: 3306
+      DB_NAME: smartticketdb
+      DB_USER: root
+      DB_PASSWORD: root
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smartticket-net
+
+  # Booking Service Instance 1 (Horizontal Scale Node A)
+  booking-service-1:
+    build:
+      context: ./services/booking-service
+    container_name: smartticket_booking_service_1
+    restart: always
+    environment:
+      SERVICE_INSTANCE_ID: BOOKING-SERVICE-1
+      SEAT_SERVICE_URL: http://seat-service:8080
+      DB_HOST: mysqldb
+      DB_PORT: 3306
+      DB_NAME: smartticketdb
+      DB_USER: root
+      DB_PASSWORD: root
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      seat-service:
+        condition: service_started
+    networks:
+      - smartticket-net
+
+  # Booking Service Instance 2 (Horizontal Scale Node B)
+  booking-service-2:
+    build:
+      context: ./services/booking-service
+    container_name: smartticket_booking_service_2
+    restart: always
+    environment:
+      SERVICE_INSTANCE_ID: BOOKING-SERVICE-2
+      SEAT_SERVICE_URL: http://seat-service:8080
+      DB_HOST: mysqldb
+      DB_PORT: 3306
+      DB_NAME: smartticketdb
+      DB_USER: root
+      DB_PASSWORD: root
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      seat-service:
+        condition: service_started
+    networks:
+      - smartticket-net
+
+  # Notification Service (Asynchronous Consumer)
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: smartticket_notification_service
+    restart: always
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - smartticket-net
+
+  # Frontend Web App (React Vite)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: smartticket_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    environment:
+      VITE_API_BASE_URL: http://localhost/api
+    depends_on:
+      - nginx
+    networks:
+      - smartticket-net
+
+networks:
+  smartticket-net:
+    driver: bridge
 
 volumes:
   db_data:
+  redis_data:

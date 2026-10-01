@@ -1,141 +1,145 @@
-# SmartTicket - Concurrent Ticket Booking & Reservation System
+# SmartTicket - Distributed Ticket Booking & Reservation Application
 
-SmartTicket is a high-concurrency, enterprise-grade ticket booking and reservation platform built with **Java 21 / Spring Boot 3** on the backend and **React.js / Material UI / Chart.js** on the frontend. 
-
-It handles massive concurrent user traffic using **Optimistic Concurrency Control (OCC)**, **Exponential Backoff Retries**, **Deadlock & Timeout Handling**, and features an in-app **Multi-Threaded Concurrency Simulator** powered by Java's `ExecutorService`.
+SmartTicket is an enterprise-grade **Distributed Ticket Booking Application** engineered for college Distributed Systems projects. It demonstrates Microservices Architecture, Containerization, Load Balancing, Horizontal Scalability, Redis Caching, Asynchronous Messaging, Optimistic Concurrency Control (OCC), and Service Fault Tolerance.
 
 ---
 
-## Key Features
+## 🏗️ Distributed Architecture Overview
 
-- **JWT Authentication & Role-Based Access Control**: Secure login/register flow for both `USER` and `ADMIN` roles.
-- **Event & Venue Management**: Admins can create, edit, and delete events with dynamic ticket pricing and seat allocation.
-- **Interactive Visual Seat Grid Map**: Dynamic SVG/Grid seat selector with real-time availability indicator:
-  - **Green**: Available
-  - **Yellow**: Reserved / Selected
-  - **Red**: Booked
-- **Optimistic Concurrency Control (OCC)**: Built with JPA `@Version` locking to guarantee data integrity when hundreds of users attempt booking the same seat simultaneously.
-- **Exponential Backoff Retry Engine**: Automatic retry mechanism with randomized jitter to handle version conflicts gracefully.
-- **Multi-Threaded Concurrency Simulator**: Admin dashboard tool to simulate $100$, $200$, $500$, or $1000$ concurrent threads competing for seats in real-time.
-- **Analytics & Health Dashboard**: Live metrics cards and Chart.js graphs displaying throughput, OCC conflict rates, execution response times, CPU/Memory usage, and transaction log streams.
-- **Downloadable Receipts**: Generates instant booking confirmation receipts.
+```text
+                           ┌─────────────────────────────────────────┐
+                           │      React Web Frontend (Port 3000)     │
+                           └────────────────────┬────────────────────┘
+                                                │ REST / HTTP
+                                                ▼
+                           ┌─────────────────────────────────────────┐
+                           │  Nginx API Gateway / Load Balancer (80) │
+                           └───────────┬─────────────────┬───────────┘
+                                       │                 │
+                Round-Robin Load       │                 │ Direct Proxy Route
+                Balancing              ▼                 ▼
+                       ┌──────────────────────┐  ┌──────────────────┐
+                       │  Booking Service 1   │  │   Seat Service   │
+                       └───────────┬──────────┘  └────────┬─────────┘
+                                   │                      │
+                       ┌───────────┴──────────┐           │
+                       │  Booking Service 2   │           │
+                       └───────────┬──────────┘           │
+                                   │ REST / HTTP          │
+                                   └──────────┬───────────┘
+                                              │
+                                              ▼
+                                   ┌──────────────────────┐
+                                   │ Data Access Layer    │
+                                   └──────────┬───────────┘
+                                              │
+                        ┌─────────────────────┴─────────────────────┐
+                        ▼                                           ▼
+            ┌──────────────────────┐                    ┌──────────────────────┐
+            │   Redis Cache (6379) │                    │  MySQL Database(3306)│
+            └──────────────────────┘                    └──────────────────────┘
+
+       [Asynchronous Messaging Decoupling via RabbitMQ]
+       
+       Booking Service 1/2 ──(BookingConfirmed Event)──► RabbitMQ (5672) ──► Notification Service
+```
+
+---
+
+## ⚡ Caching Strategy (Redis + MySQL)
+
+1. **Read Operations (Cache-Aside Pattern)**:
+   - When a service queries seat layouts or booking details, `SeatDataRepository` / `BookingDataRepository` checks Redis first (`GET seats:event:{id}`).
+   - **Cache HIT**: Returns cached JSON payload instantly in $<5\text{ms}$.
+   - **Cache MISS**: Queries MySQL, writes JSON to Redis with 10-minute TTL, and returns data.
+
+2. **Write & Booking Strategy (Atomic Lock + Write-Through Invalidation)**:
+   - To prevent double bookings across distributed instances, the repository executes an atomic Redis reservation check (`opsForValue().setIfAbsent("lock:seat:{eventId}:{seatNumber}", "RESERVED", 30s)`).
+   - Once reserved in Redis, the transaction persists to MySQL using JPA `@Version` Optimistic Concurrency Control (OCC).
+   - Upon successful database commit, Redis invalidates the stale event seats cache (`DEL seats:event:{id}`).
+   - If MySQL persistence fails, the temporary Redis reservation lock is released safely.
+
+3. **Cache Consistency**:
+   - MySQL remains the durable persistent source of truth.
+   - Critical reservation data uses atomic Redis checks to prioritize booking correctness over naive speed.
+
+---
+
+## 🚀 Key Distributed Systems Concepts Demonstrated
+
+1. **Microservices Architecture**: Independent domain services (`booking-service`, `seat-service`, `notification-service`).
+2. **Horizontal Scalability & Load Balancing**: Nginx distributes traffic across multiple Booking Service instances (`booking-service-1` and `booking-service-2`).
+3. **In-Memory Caching**: Redis 7.0 caching layer providing sub-5ms read latencies and atomic reservation locks.
+4. **Asynchronous Messaging**: Decoupled event-driven notification dispatch via **RabbitMQ** (`booking.events` topic exchange).
+5. **Synchronous Inter-Service REST**: Booking Service communicates with Seat Service over internal Docker network (`http://seat-service:8080`).
+6. **Concurrency & OCC Control**: Atomic Redis locks + JPA `@Version` OCC with Exponential Backoff Retries to prevent double bookings.
+7. **Fault Tolerance**: Redundant booking nodes and graceful Redis fallback to MySQL.
 
 ---
 
 ## 🛠️ Technology Stack
 
-### Backend
-- **Java 21**
-- **Spring Boot 3.2** (Spring MVC, Spring Data JPA, Spring Security)
-- **Database**: H2 (In-Memory default) & MySQL 8.0 support
-- **Connection Pool**: HikariCP
-- **Security**: JWT (`jjwt 0.11.5`) & BCrypt Password Hashing
-- **Build Tool**: Maven
-
-### Frontend
-- **React.js** (Vite Scaffold)
-- **UI Framework**: Material UI (MUI v5) & Glassmorphic Custom Styling
-- **Charts & Data Visualization**: Chart.js & `react-chartjs-2`
-- **HTTP Client**: Axios with JWT Bearer Interceptors
-- **Routing**: React Router DOM v6
+- **Frontend**: React.js (Vite), Material UI (MUI v5), Chart.js
+- **Backend Microservices**: Java 21, Spring Boot 3.2, Spring MVC, Spring Data JPA, Spring AMQP, Spring Data Redis
+- **Load Balancer / API Gateway**: Nginx Reverse Proxy
+- **Caching Layer**: Redis 7.0
+- **Message Broker**: RabbitMQ 3.12 (AMQP Protocol & Web Management UI)
+- **Database**: MySQL 8.0 with HikariCP connection pooling
+- **Containerization**: Docker & Docker Compose
 
 ---
 
-## Backend Layer Architecture
+## ⚡ How to Build & Run Locally
 
-The backend strictly follows a layered architecture:
-
-```text
-smartticket-backend/src/main/java/com/smartticket/
-│
-├── cmd/                # Main Application Entry Point (Application.java)
-├── controller/         # REST Controllers (Auth, Event, Seat, Booking, Dashboard, Simulation)
-├── services/           # Core Business Logic & Concurrency Orchestration
-├── repository/         # JPA Repositories (User, Event, Seat, Booking, Log, Performance)
-├── model/              # Database Schema Entities (User, Event, Seat, Booking, Log, Metric)
-├── dto/                # Data Transfer Objects (Requests & Responses)
-├── concurrency/        # OCC Manager, Retry Manager, Deadlock & Timeout Handlers
-├── simulation/         # Multi-Threaded Stress Test Simulator Engine
-├── config/             # Security, JWT, CORS & Data Seeder Configurations
-├── utils/              # Transaction ID Generator & Performance Metrics Calculators
-└── exception/          # Custom Exception Classes & Global Controller Advice Handler
-```
-
----
-
-## Concurrency Execution Flow
-
-```text
-Thread 1 (User A)  ──┐
-                     ├──► Seat A12 (Version = 3) ──► Lock Acquired ──► Version = 4 (SUCCESS)
-Thread 2 (User B)  ──┘
-                     └──► Seat A12 (Version = 3) ──► Version Mismatch ──► Retry with Backoff ──► Seat Already Booked
-```
-
-1. Multiple worker threads target the exact same seat simultaneously.
-2. The transaction attempts commit via JPA `@Version`.
-3. The winning thread succeeds and increments the version counter.
-4. Losing threads catch `ObjectOptimisticLockingFailureException`.
-5. `RetryManager` delays execution exponentially ($50\text{ms}, 100\text{ms}, 200\text{ms} + \text{jitter}$) across 3 attempts before raising `SeatAlreadyBookedException`.
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- **JDK 21**
-- **Node.js** (v18 or higher)
-- **Maven**
-- **Docker & Docker Compose** (Optional for MySQL)
-
----
-
-### Running Locally
-
-#### 1. Start Spring Boot Backend
+### Start Entire Distributed Stack with Docker Compose
+From the root directory, execute:
 ```bash
-cd backend
-mvn spring-boot:run
+docker compose up --build
 ```
-> The backend server runs on `http://localhost:8080`. H2 Console is available at `http://localhost:8080/h2-console`.
 
-#### 2. Start React Frontend
+### Access Running Components
+- **Web Frontend Application**: [http://localhost:3000](http://localhost:3000)
+- **Nginx API Gateway**: [http://localhost/api](http://localhost/api)
+- **RabbitMQ Management Dashboard**: [http://localhost:15672](http://localhost:15672) (User: `guest`, Pass: `guest`)
+- **Redis Cache**: `localhost:6379`
+- **MySQL Database**: `localhost:3306` (User: `root`, Pass: `root`, DB: `smartticketdb`)
+
+---
+
+## 🧪 API Testing & Performance Load Testing
+
+- **Postman API Suite**: Import `SmartTicket_API_Postman_Collection.json` for automated endpoint tests.
+- **API Testing Report**: Refer to [API_TESTING_REPORT.md](file:///C:/Users/HP/.gemini/antigravity-ide/scratch/SmartTicket/API_TESTING_REPORT.md).
+- **Performance Load Report**: Refer to [PERFORMANCE_LOAD_TEST_REPORT.md](file:///C:/Users/HP/.gemini/antigravity-ide/scratch/SmartTicket/PERFORMANCE_LOAD_TEST_REPORT.md).
+
+### Quick k6 Load Test Execution
 ```bash
-cd frontend
-npm install
-npm run dev
-```
-> The frontend application runs on `http://localhost:5173`.
-
----
-
-### Running via Docker Compose
-
-To launch Spring Boot together with MySQL in Docker containers:
-
-```bash
-docker-compose up --build
+k6 run load_test_script.js
 ```
 
 ---
 
-## 📡 API Endpoints Summary
+## 🛡️ Service Fault Tolerance
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/auth/register` | Register a new user/admin account |
-| `POST` | `/api/auth/login` | Authenticate user & return JWT token |
-| `GET` | `/api/events` | Retrieve list of all scheduled events |
-| `POST` | `/api/events` | Admin create new event |
-| `GET` | `/api/seats/{eventId}` | Get real-time seat availability & versions |
-| `POST` | `/api/book` | Execute concurrent transactional booking request |
-| `GET` | `/api/bookings` | Retrieve user booking history |
-| `GET` | `/api/dashboard` | Fetch high-level performance metrics summary |
-| `POST` | `/api/simulation/run` | Trigger multi-threaded ExecutorService simulation |
-| `GET` | `/api/logs` | Fetch real-time transaction log stream |
-| `GET` | `/api/performance` | Fetch benchmark performance history |
+1. **Booking Service Failure**:
+   ```bash
+   docker stop smartticket_booking_service_1
+   ```
+   Nginx automatically routes incoming traffic to `booking-service-2` without user disruption.
+
+2. **Notification Service Failure**:
+   ```bash
+   docker stop smartticket_notification_service
+   ```
+   Booking events queue safely in RabbitMQ `notification.queue` and are consumed immediately when the service restarts.
+
+3. **Redis Failure & Fallback**:
+   If Redis becomes unavailable, the repository logs `[REDIS] Redis unavailable. Fallback to MySQL.` and falls back safely to MySQL OCC without corrupting booking states.
 
 ---
 
-## 📄 License
-This project is open-source under the MIT License.
+## ⚠️ Known Limitations
+
+- **Centralized Persistence**: MySQL remains a centralized database and potential single point of failure (SPOF). Production setups require database replication or sharded clusters.
+- **Redis In-Memory State**: Redis is used for high-speed caching and atomic locking; MySQL remains the durable source of truth.
+- **Academic Scope**: Designed for local Docker Compose demonstration and Distributed Systems defense.

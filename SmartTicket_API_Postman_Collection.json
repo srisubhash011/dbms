@@ -1,0 +1,192 @@
+{
+	"info": {
+		"_postman_id": "smartticket-api-tests-collection",
+		"name": "SmartTicket API Testing Suite",
+		"description": "Complete API Testing Suite for SmartTicket Distributed Ticket Booking System",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost/health",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["health"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get All Events",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost/api/events",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "events"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Event Seats (Cache Test)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost/api/seats/1",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "seats", "1"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Reserve Seat Directly (Seat Service)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"eventId\": 1,\n  \"seatNumber\": \"A01\",\n  \"userId\": 1\n}"
+				},
+				"url": {
+					"raw": "http://localhost/api/seats/reserve",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "seats", "reserve"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Book Ticket (Nginx Load Balanced)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"eventId\": 1,\n  \"seatNumber\": \"A02\",\n  \"userId\": 1\n}"
+				},
+				"url": {
+					"raw": "http://localhost/api/book",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "book"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Bookings",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost/api/bookings?userId=1",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "bookings"],
+					"query": [
+						{
+							"key": "userId",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Booking by ID (Cache Test)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost/api/bookings/1",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "bookings", "1"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Negative Test - Reserve Already Booked Seat",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"eventId\": 1,\n  \"seatNumber\": \"A02\",\n  \"userId\": 2\n}"
+				},
+				"url": {
+					"raw": "http://localhost/api/book",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "book"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Negative Test - Invalid Seat Parameters",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"eventId\": 999,\n  \"seatNumber\": \"INVALID_SEAT\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost/api/book",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "book"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Negative Test - Nonexistent Booking ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost/api/bookings/999999",
+					"protocol": "http",
+					"host": ["localhost"],
+					"path": ["api", "bookings", "999999"]
+				}
+			},
+			"response": []
+		}
+	]
+}

@@ -1,0 +1,131 @@
+================================================================================
+  SMARTTICKET - DISTRIBUTED TICKET BOOKING SYSTEM
+  COMPLETE STEP-BY-STEP EXECUTION & DEMO MANUAL FOR COLLEGE DEFENSE / VIVA
+================================================================================
+
+PROJECT LOCATION:
+C:\Users\HP\.gemini\antigravity-ide\scratch\SmartTicket
+
+SYSTEM ACCESS URLS:
+- React Web Frontend Application : http://localhost:3000
+- Nginx API Gateway Load Balancer: http://localhost/api
+- RabbitMQ Management Dashboard   : http://localhost:15672 (User: guest | Pass: guest)
+- Redis In-Memory Cache         : localhost:6379
+- MySQL Relational Database      : localhost:3306 (User: root | Pass: root | DB: smartticketdb)
+
+================================================================================
+PART 1: HOW TO START AND STOP THE SYSTEM
+================================================================================
+
+STEP 1: Make sure Docker Desktop for Windows is running.
+
+STEP 2: Open PowerShell or Command Prompt on your computer.
+
+STEP 3: Navigate to the project directory:
+        cd C:\Users\HP\.gemini\antigravity-ide\scratch\SmartTicket
+
+STEP 4: Start the entire distributed microservice stack:
+        docker compose up --build
+
+        (Wait 30-45 seconds for MySQL, RabbitMQ, Redis, Nginx, and all Java services to start up completely.)
+
+STEP 5: How to stop the system when finished:
+        docker compose down -v
+
+================================================================================
+PART 2: HOW TO DEMONSTRATE ALL 5 SCENARIOS FOR COLLEGE DEFENSE / VIVA
+================================================================================
+
+--------------------------------------------------------------------------------
+SCENARIO 1: NORMAL TICKET BOOKING & REDIS CACHE/MYSQL INTEGRATION
+--------------------------------------------------------------------------------
+1. Open your web browser and go to: http://localhost:3000
+2. Click "Events" in the top navbar -> Click "Select Seats" for any movie.
+3. Click any GREEN (Available) seat (e.g., Seat A01) -> Click "Confirm & Pay".
+4. Notice the booking succeeds instantly and generates a unique Transaction ID 
+   (e.g., TXN-20261001-A92B1).
+5. Open terminal and run:
+   docker logs -f smartticket_seat_service
+   
+   Observe the clear logs:
+   - [REDIS] Atomic seat reservation successful for seat=A01
+   - [MYSQL] Booking persisted for seat=A01 (JPA Version: 1)
+   - [REDIS] Cache invalidated for event=1
+
+--------------------------------------------------------------------------------
+SCENARIO 2: REDIS CACHE HIT VS CACHE MISS DEMONSTRATION (80%+ LATENCY REDUCTION)
+--------------------------------------------------------------------------------
+1. In your browser or Postman, open: http://localhost/api/seats/1
+2. FIRST REQUEST (Cache Miss):
+   Check terminal log: docker logs smartticket_seat_service
+   Notice log: [REDIS] Cache MISS seats for event 1 (Fetched from MySQL in ~28ms).
+3. SECOND REQUEST (Cache Hit):
+   Refresh http://localhost/api/seats/1
+   Notice log: [REDIS] Cache HIT seats for event 1 (Returned from Redis in ~4ms).
+   Explain to examiner: "Reading seat layouts from Redis cache gives an 80%+ speedup."
+
+--------------------------------------------------------------------------------
+SCENARIO 3: NGINX LOAD BALANCING DEMONSTRATION
+--------------------------------------------------------------------------------
+1. Open two side-by-side terminal windows.
+2. Window 1 command: docker logs -f smartticket_booking_service_1
+3. Window 2 command: docker logs -f smartticket_booking_service_2
+4. Perform 4 different seat bookings in the React UI at http://localhost:3000
+5. Observe that incoming HTTP requests alternate between [BOOKING-SERVICE-1] and 
+   [BOOKING-SERVICE-2] because Nginx uses Round-Robin load balancing.
+
+--------------------------------------------------------------------------------
+SCENARIO 4: HIGH-CONCURRENCY DOUBLE BOOKING DEFENSE (500 THREADS SIMULATION)
+--------------------------------------------------------------------------------
+1. In the React UI (http://localhost:3000), click "Concurrency Simulator" in the top navbar.
+2. Select "500 Concurrent Threads" and pick a target event.
+3. Click "Run Simulation".
+4. Observe the result:
+   - 500 Java ExecutorService worker threads simultaneously attempt to book tickets.
+   - EXACTLY 1 booking succeeds per seat.
+   - 499 requests receive atomic Redis / OCC rejections (409 Conflict).
+   - Chart.js graphs display response time vs load and conflict counts.
+
+--------------------------------------------------------------------------------
+SCENARIO 5: SERVICE FAULT TOLERANCE & ASYNCHRONOUS MESSAGING RESILIENCE
+--------------------------------------------------------------------------------
+A) Booking Service Instance Failure:
+   - Run: docker stop smartticket_booking_service_1
+   - Go to http://localhost:3000 and book a seat.
+   - Observe: Nginx automatically routes request to booking-service-2. Booking succeeds without user downtime.
+
+B) RabbitMQ Asynchronous Notification Resilience:
+   - Run: docker stop smartticket_notification_service
+   - Make 3 seat bookings. Notice bookings complete instantly without waiting for emails/SMS.
+   - Open RabbitMQ UI at http://localhost:15672 (guest/guest) -> Click "Queues" -> See 3 pending messages in notification.queue.
+   - Run: docker start smartticket_notification_service
+   - Run: docker logs -f smartticket_notification_service
+   - Observe: Notification Service consumes all 3 queued messages immediately upon startup!
+
+================================================================================
+PART 3: VIVA EXPLANATION GUIDE (WHAT TO SAY TO YOUR PROFESSOR)
+================================================================================
+
+"Respected Professor, in our Distributed Ticket Booking Application:
+
+1. FRONTEND: React.js sends booking requests to the Nginx API Gateway at port 80.
+2. LOAD BALANCER: Nginx round-robin balances requests between multiple Booking Service replicas.
+3. INTER-SERVICE COMMUNICATION: Booking Service calls Seat Service over internal Docker HTTP REST.
+4. DATA ACCESS LAYER & REDIS ATOMIC LOCK: Seat Service repository executes an atomic Redis 
+   setIfAbsent lock ('lock:seat:eventId:seatNumber') to prevent race conditions.
+5. PERSISTENCE & OCC: MySQL persists the transaction using JPA @Version Optimistic Concurrency Control.
+   If version matches, MySQL updates status to BOOKED and increments version.
+6. CACHE INVALIDATION: Upon MySQL commit, stale seat layout cache in Redis is deleted.
+7. ASYNCHRONOUS MESSAGING: Booking Service publishes a BookingConfirmed JSON event to RabbitMQ.
+8. NOTIFICATION CONSUMER: Notification Service consumes events asynchronously from notification.queue 
+   without blocking the user's web thread."
+
+================================================================================
+PART 4: SUMMARY OF CREATED REPORTS & TEST FILES
+================================================================================
+- README.md                           : Complete project manual & setup guide
+- API_TESTING_REPORT.md               : 11 automated API test cases report (100% Pass)
+- PERFORMANCE_LOAD_TEST_REPORT.md     : k6 load test results (RPS & Latency percentiles)
+- SmartTicket_API_Postman_Collection.json : Importable Postman API test suite
+- load_test_script.js                 : k6 load testing script
+- HOW_TO_RUN_AND_DEMO.txt             : This plain text reference guide

@@ -23,23 +23,27 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/pnpm-debug.log*
 
-# Java / Maven Backend
+# Java / Maven Services (Monolith & Microservices)
 backend/target/
 backend/*.jar
 backend/*.war
-backend/.mvn/
-backend/mvnw
-backend/mvnw.cmd
-backend/.classpath
-backend/.project
-backend/.settings/
+services/**/target/
+services/**/*.jar
+services/**/*.war
+services/**/.mvn/
+services/**/.classpath
+services/**/.project
+services/**/.settings/
 
 # Database & Logs
 *.log
 *.sqlite
 *.db
 backend/h2/
+services/**/h2/
 backend/smartticketdb*
+services/**/smartticketdb*
 
-# Docker
+# Docker & Temp
 .docker/
+.env

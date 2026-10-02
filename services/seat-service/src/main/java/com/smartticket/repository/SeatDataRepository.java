@@ -144,12 +144,22 @@ public class SeatDataRepository {
 
             log.info("[MYSQL] Booking persisted for seat={} (JPA Version: {})", seat.getSeatNumber(), seat.getVersion());
 
-            // Step 3: Cache Update / Invalidation
+            // Step 3: Cache Update / Invalidation & Lock Cleanup
             try {
                 redisTemplate.delete(SEATS_CACHE_PREFIX + event.getId());
                 log.info("[REDIS] Cache invalidated for event={}", event.getId());
             } catch (Exception ex) {
                 log.warn("[REDIS] Failed to invalidate cache: {}", ex.getMessage());
+            }
+
+            // Step 4: Explicitly release temporary Redis lock on success
+            if (lockAcquired) {
+                try {
+                    redisTemplate.delete(lockKey);
+                    log.info("[REDIS] Released temporary Redis reservation lock on success for seat={}", seat.getSeatNumber());
+                } catch (Exception e) {
+                    log.warn("[REDIS] Error releasing Redis lock on success: {}", e.getMessage());
+                }
             }
 
             return SeatReservationResponse.builder()

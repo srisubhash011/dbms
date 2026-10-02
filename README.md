@@ -56,12 +56,11 @@ SmartTicket is an enterprise-grade **Distributed Ticket Booking Application** en
 2. **Write & Booking Strategy (Atomic Lock + Write-Through Invalidation)**:
    - To prevent double bookings across distributed instances, the repository executes an atomic Redis reservation check (`opsForValue().setIfAbsent("lock:seat:{eventId}:{seatNumber}", "RESERVED", 30s)`).
    - Once reserved in Redis, the transaction persists to MySQL using JPA `@Version` Optimistic Concurrency Control (OCC).
-   - Upon successful database commit, Redis invalidates the stale event seats cache (`DEL seats:event:{id}`).
-   - If MySQL persistence fails, the temporary Redis reservation lock is released safely.
+   - Upon successful database commit, Redis invalidates the stale event seats cache (`DEL seats:event:{id}`) and **explicitly releases the temporary reservation lock** (`DEL lock:seat:{eventId}:{seatNumber}`).
+   - If MySQL persistence fails, the temporary Redis reservation lock is also released safely in the exception handler.
 
-3. **Cache Consistency**:
-   - MySQL remains the durable persistent source of truth.
-   - Critical reservation data uses atomic Redis checks to prioritize booking correctness over naive speed.
+3. **Security & Authentication Enforcement**:
+   - `JwtAuthenticationFilter` validates Bearer tokens. Public endpoints (`/api/auth/**`, `/health`, read-only `GET`) are permitted while transactional booking endpoints (`POST /api/book`) require valid JWT credentials, and admin operations (`POST /api/simulation`, `POST/DELETE /api/events`) enforce `ROLE_ADMIN`.
 
 ---
 

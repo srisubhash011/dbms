@@ -146,7 +146,8 @@ To prepare this project for your **Distributed Systems** college defense, we tra
    - **Write & Booking Operations**: To prevent race conditions, the repository performs an atomic Redis reservation check (`opsForValue().setIfAbsent("lock:seat:{eventId}:{seatNumber}", "RESERVED", 30s)`). If successful, MySQL JPA `@Version` OCC persists the transaction. Upon commit, Redis invalidates the stale seats cache (`DEL seats:event:{id}`).
 
 3. **Booking Service (`services/booking-service`)**:
-   - Handles user bookings, transaction IDs, and coordinates payment confirmation.
+   - Manages user bookings, transaction IDs, and coordinates payment confirmation.
+   - Enforces **JWT Security Authentication** via `JwtAuthenticationFilter` and `SecurityConfig`. Public endpoints (`/api/auth/**`, `/health`, read-only GET APIs) are permitted while transactional booking endpoints (`POST /api/book`) and Admin simulation APIs enforce valid JWT token verification and role checks (`ROLE_ADMIN` vs `ROLE_USER`).
    - Calls `Seat Service` over HTTP (`http://seat-service:8080/api/seats/reserve`).
    - Publishes `BookingConfirmed` JSON events to **RabbitMQ** (`booking.events` exchange).
    - Horizontally scaled across multiple instances (`booking-service-1` and `booking-service-2`).

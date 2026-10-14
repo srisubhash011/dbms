@@ -2,6 +2,7 @@ package com.smartticket.repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.smartticket.dto.BookingRequest;
 import com.smartticket.dto.BookingResponse;
 import com.smartticket.dto.SeatReservationResponse;
 import com.smartticket.exception.BookingException;
@@ -134,6 +135,43 @@ public class BookingDataRepository {
         }
 
         return savedBooking;
+    }
+
+    @Transactional
+    public Booking cancelBooking(Long bookingId) {
+        Booking booking = bookingJpaRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingException("Booking not found with ID: " + bookingId));
+
+        if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
+            throw new BookingException("Booking " + bookingId + " is already CANCELLED");
+        }
+
+        booking.setStatus(Booking.BookingStatus.CANCELLED);
+        Booking updatedBooking = bookingJpaRepository.save(booking);
+
+        // Update / Invalidate Redis Cache
+        String cacheKey = BOOKING_CACHE_PREFIX + bookingId;
+        try {
+            redisTemplate.delete(cacheKey);
+            log.info("[REDIS] Evicted cache for cancelled booking id={}", bookingId);
+        } catch (Exception e) {
+            log.warn("[REDIS] Failed to evict booking cache on cancel: {}", e.getMessage());
+        }
+
+        // Save Transaction Log
+        TransactionLog logEntry = TransactionLog.builder()
+                .transactionId(booking.getTransactionId())
+                .threadName("[" + instanceId + "] " + Thread.currentThread().getName())
+                .bookingStart(LocalDateTime.now())
+                .bookingEnd(LocalDateTime.now())
+                .executionTimeMs(5L)
+                .retryCount(0)
+                .status("CANCELLED")
+                .remarks("Booking " + bookingId + " cancelled and seat released. Processed by " + instanceId)
+                .build();
+        logJpaRepository.save(logEntry);
+
+        return updatedBooking;
     }
 
     public void saveFailedLog(BookingRequest request, String threadName, long startTime, int attempts, String status, String remarks) {

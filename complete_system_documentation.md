@@ -237,4 +237,43 @@ docker compose down -v
 - **k6 Load Test Script**: `load_test_script.js`
 - **API Testing Report**: [API_TESTING_REPORT.md](file:///C:/Users/HP/.gemini/antigravity-ide/scratch/SmartTicket/API_TESTING_REPORT.md)
 - **Performance Load Testing Report**: [PERFORMANCE_LOAD_TEST_REPORT.md](file:///C:/Users/HP/.gemini/antigravity-ide/scratch/SmartTicket/PERFORMANCE_LOAD_TEST_REPORT.md)
+- **Automated Terminal Test Runner**: `frontend/test_runner.cjs` (`npm run test`)
 - **Project README**: [README.md](file:///C:/Users/HP/.gemini/antigravity-ide/scratch/SmartTicket/README.md)
+- **User Run Manual**: [HOW_TO_RUN_AND_DEMO.txt](file:///C:/Users/HP/.gemini/antigravity-ide/scratch/SmartTicket/HOW_TO_RUN_AND_DEMO.txt)
+
+---
+
+## 8. Dual-Port Architecture: Client Portal (Port 3000) & Dedicated QA Hub (Port 3001)
+
+### 8.1 Port 3000: Client-Facing User Booking Application
+- **URL**: [http://localhost:3000](http://localhost:3000)
+- **Target Audience**: End-users, attendees, and ticket buyers.
+- **Features**:
+  - Secure Authentication (`alex_user`, `john_doe`, `admin`).
+  - 6 Featured Shows across Music, Tech, Classical, Gaming, and Broadway with search and category filters.
+  - Interactive Seating Grid & Stage lighting with VIP, Premium, and Standard tier selections.
+  - Promo discount engine (e.g. `SMART20` for 20% off).
+  - Instant booking confirmation & Digital Ticket Wallet with simulated QR code entry passes.
+
+### 8.2 Port 3001: Enterprise QA, CI/CD & Concurrency Testing Hub
+- **URL**: [http://localhost:3001](http://localhost:3001)
+- **Target Audience**: Quality Engineers, Testers, Performance Analysts, and DevOps.
+- **Enterprise Testing Tools Matrix**:
+  1. **Selenium WebDriver**: End-to-End browser UI automation suite (headless Chrome, Edge, Firefox) testing authentication flows, seat matrix toggling, and DOM promo discount calculation.
+  2. **Jenkins CI/CD Pipeline**: Declarative multi-stage pipeline (Build #148: SCM Checkout $\rightarrow$ SonarQube $\rightarrow$ Maven $\rightarrow$ Docker Packing).
+  3. **Allure Test Report**: Visual defect matrix, execution duration, attachment logs, and 100% suite stability.
+  4. **PractiTest ALM**: Requirements-to-test traceability and distributed lock OCC verification sets.
+  5. **qTest (Tricentis)**: Agile test execution cycles and sprint velocity burn-down metrics.
+  6. **SonarQube Quality Gate**: Static code analysis verifying Quality Gate A (0 bugs, 0 vulnerabilities, 0 security hotspots).
+  7. **11 REST API Contract Tests (`TC-01` to `TC-11`)**: Filterable table with expandable request payload / response JSON inspection drawers.
+  8. **Live Concurrency Race Simulator**: Multi-threaded virtual user stress tester simulating simultaneous bookings on the exact same seat.
+  9. **Distributed System Topology**: Component status for Nginx Gateway, Spring Boot replicas, Redis 7, MySQL 8, and RabbitMQ.
+
+### 8.3 Terminal Automated Test Execution (`npm run test`)
+Similar to the reference Medi_Chain repository, developers can run:
+```powershell
+npm run test
+```
+from the project root to execute the complete automated test suite across all 6 Enterprise QA tools, 11 API endpoints, and the 100-user concurrency race condition verification.
+
+

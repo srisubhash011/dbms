@@ -19,6 +19,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
+import org.springframework.web.client.RestTemplate;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -178,6 +180,52 @@ public class BookingService {
 
     public Booking getBookingById(Long id) {
         return bookingDataRepository.findBookingById(id);
+    }
+
+    public Booking cancelBooking(Long id) {
+        log.info("[{}] Initiating ticket cancellation for Booking ID: {}", instanceId, id);
+
+        // 1. Fetch current booking
+        Booking booking = bookingDataRepository.findBookingById(id);
+
+        // 2. Call Seat Service to release the seat back to AVAILABLE & invalidate event seats cache
+        try {
+            SeatReservationRequest releaseReq = SeatReservationRequest.builder()
+                    .eventId(booking.getEvent().getId())
+                    .seatNumber(booking.getSeat().getSeatNumber())
+                    .build();
+
+            restTemplate.postForEntity(seatServiceUrl + "/api/seats/release", releaseReq, SeatReservationResponse.class);
+            log.info("[{}] Released seat {} via Seat Service", instanceId, booking.getSeat().getSeatNumber());
+        } catch (Exception ex) {
+            log.error("[{}] Warning: Seat Service release failed: {}", instanceId, ex.getMessage());
+        }
+
+        // 3. Mark booking CANCELLED in MySQL & evict Redis cache
+        Booking cancelledBooking = bookingDataRepository.cancelBooking(id);
+
+        // 4. Emit booking.cancelled event to RabbitMQ
+        try {
+            BookingEvent event = BookingEvent.builder()
+                    .bookingId("B" + cancelledBooking.getId())
+                    .transactionId(cancelledBooking.getTransactionId())
+                    .userId(cancelledBooking.getUser().getId())
+                    .userEmail(cancelledBooking.getUser().getEmail())
+                    .eventId(cancelledBooking.getEvent().getId())
+                    .eventTitle(cancelledBooking.getEvent().getTitle())
+                    .seatNumber(cancelledBooking.getSeat().getSeatNumber())
+                    .status("CANCELLED")
+                    .timestamp(LocalDateTime.now())
+                    .processedByInstance(instanceId)
+                    .build();
+
+            rabbitTemplate.convertAndSend(exchangeName, "booking.cancelled", event);
+            log.info("[{}] Emitted booking.cancelled event to RabbitMQ for Booking ID: {}", instanceId, id);
+        } catch (Exception e) {
+            log.warn("[{}] Could not emit RabbitMQ cancel event: {}", instanceId, e.getMessage());
+        }
+
+        return cancelledBooking;
     }
 
     public String getCacheMetrics() {

@@ -2,6 +2,9 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+~$*.docx
+~$*.doc
+*.tmp
 
 # IDE & Editors
 .idea/
@@ -9,34 +12,37 @@ desktop.ini
 *.swp
 *.swo
 *.iml
+.project
+.classpath
+.settings/
 
-# Node / React Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.test.local
-frontend/.env.production.local
-frontend/npm-debug.log*
-frontend/yarn-debug.log*
-frontend/yarn-error.log*
-frontend/pnpm-debug.log*
+# Node.js / React (Root, frontend, testing-dashboard, and all subdirectories)
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Java / Maven Services (Monolith & Microservices)
-backend/target/
-backend/*.jar
-backend/*.war
-services/**/target/
-services/**/*.jar
-services/**/*.war
-services/**/.mvn/
-services/**/.classpath
-services/**/.project
-services/**/.settings/
+target/
+**/target/
+*.jar
+*.war
+*.ear
+*.class
+.mvn/
+**/.mvn/
 
-# Database & Logs
+# Database & Runtime Logs
 *.log
+**/logs/
 *.sqlite
 *.db
 backend/h2/
@@ -44,6 +50,6 @@ services/**/h2/
 backend/smartticketdb*
 services/**/smartticketdb*
 
-# Docker & Temp
+# Docker & Secrets
 .docker/
 .env

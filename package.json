@@ -1,0 +1,11 @@
+{
+  "name": "smartticket-distributed-system",
+  "version": "1.0.0",
+  "description": "High-Throughput Distributed Ticket Booking System with Nginx, Spring Boot, Redis, MySQL OCC, and RabbitMQ",
+  "scripts": {
+    "test": "node frontend/test_runner.cjs",
+    "test:cli": "node frontend/test_runner.cjs"
+  },
+  "author": "SmartTicket Core Team",
+  "license": "MIT"
+}

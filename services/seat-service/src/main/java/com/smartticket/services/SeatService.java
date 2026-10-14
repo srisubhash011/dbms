@@ -23,6 +23,10 @@ public class SeatService {
         return seatDataRepository.reserveSeatAtomically(request);
     }
 
+    public boolean releaseSeat(Long eventId, String seatNumber) {
+        return seatDataRepository.releaseSeatAtomically(eventId, seatNumber);
+    }
+
     public String getCacheMetrics() {
         return seatDataRepository.getCacheMetrics();
     }

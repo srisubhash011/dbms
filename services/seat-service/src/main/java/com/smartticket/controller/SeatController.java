@@ -38,4 +38,17 @@ public class SeatController {
         SeatReservationResponse response = seatService.reserveSeat(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/release")
+    public ResponseEntity<SeatReservationResponse> releaseSeat(@RequestBody SeatReservationRequest request) {
+        log.info("[{}] Releasing seat for Event ID: {}, Seat: {}",
+                instanceId, request.getEventId(), request.getSeatNumber());
+        boolean released = seatService.releaseSeat(request.getEventId(), request.getSeatNumber());
+        return ResponseEntity.ok(SeatReservationResponse.builder()
+                .success(released)
+                .eventId(request.getEventId())
+                .seatNumber(request.getSeatNumber())
+                .message("Seat released successfully back to AVAILABLE inventory")
+                .build());
+    }
 }

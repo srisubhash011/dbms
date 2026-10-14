@@ -1,0 +1,120 @@
+const events = [
+  { id: 1, category: 'Cinema', title: 'Avengers: Secret Wars Premiere', date: 'OCT 05', weekday: 'Monday', time: '7:00 PM', venue: 'Grand IMAX Theater · Screen 1', city: 'Manhattan, NY', price: 22.50, seats: 40, art: 'movie', label: 'WORLD PREMIERE', short: 'SECRET\nWARS' },
+  { id: 2, category: 'Concert', title: 'Coldplay · Music of the Spheres', date: 'OCT 13', weekday: 'Tuesday', time: '8:30 PM', venue: 'MetLife Stadium', city: 'East Rutherford, NJ', price: 150.00, seats: 50, art: 'concert', label: 'WORLD TOUR 2026', short: 'COLDPLAY\nLIVE' },
+  { id: 3, category: 'Conference', title: 'TechCon 2026 · AI & High Concurrency', date: 'OCT 18', weekday: 'Sunday', time: '9:00 AM', venue: 'Convention Center · Hall A', city: 'New York, NY', price: 49.99, seats: 30, art: 'tech', label: 'DEVELOPER SUMMIT', short: 'TECHCON\n2026' },
+];
+const defaultBookedSeats = { 1: ['A04', 'B07', 'D02'], 2: ['A02', 'A03', 'C06', 'E04'], 3: ['A01', 'B03'] };
+const sectionNames = { discover: 'Discover', tickets: 'My tickets', analytics: 'Live dashboard', lab: 'Concurrency lab', admin: 'Admin tools' };
+const loadJson = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
+const state = { view: 'discover', filter: 'All events', search: '', activeEvent: null, selectedSeat: null, activeBooking: null, bookings: loadJson('smartticket_demo_bookings', []) };
+const money = value => '$' + Number(value).toFixed(2);
+const eventById = id => events.find(event => event.id === Number(id));
+const escapeText = value => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+
+function storedSeats(eventId) { return loadJson('smartticket_demo_seats', {})[eventId] || []; }
+function bookedSeats(event) { return [...new Set([...(defaultBookedSeats[event.id] || []), ...storedSeats(event.id)])]; }
+function availableCount(event) { return Math.max(0, event.seats - bookedSeats(event).length); }
+
+function eventCard(event) {
+  const sold = availableCount(event);
+  return `<article class="event-card">
+    <div class="event-art art-${event.art}"><span class="art-tag">${event.label}</span><div class="art-title">${event.short.replace('\n','<br>')}</div><div class="art-footer"><span>${event.category.toUpperCase()}</span><span>${event.date} · 2026</span></div></div>
+    <div class="event-body"><h3 class="event-name">${event.title}</h3>
+      <div class="event-meta"><span class="meta-icon">◷</span><span>${event.weekday}, ${event.date} · ${event.time}</span></div>
+      <div class="event-meta"><span class="meta-icon">⌖</span><span>${event.venue}</span></div>
+      <div class="availability"><span class="tiny-dot"></span>${sold} seats available <span style="color:#64737e">·</span> limited capacity</div>
+      <div class="event-card-bottom"><div><div class="price-label">TICKETS FROM</div><div class="price">${money(event.price)} <small>/ seat</small></div></div><button class="card-button" data-event="${event.id}">Choose seats <span>→</span></button></div>
+    </div>
+  </article>`;
+}
+
+function renderDiscover() {
+  const cats = ['All events', 'Cinema', 'Concert', 'Conference'];
+  const filtered = events.filter(event => (state.filter === 'All events' || event.category === state.filter) && `${event.title} ${event.venue} ${event.city}`.toLowerCase().includes(state.search.toLowerCase()));
+  const recent = state.bookings.slice(0, 2);
+  return `<div class="hero"><div class="hero-copy"><div class="hero-kicker"><span>✳</span> ONE SEAT. ONE CHECKOUT. ZERO GUESSWORK.</div><h1>Make room for<br><em>something unforgettable.</em></h1><p>Choose an event, pick your seat, and let SmartTicket handle the rush. Your next great night starts here.</p><button class="primary-button" data-scroll-events>Explore events <span class="arrow">→</span></button></div><div class="hero-stamp"><strong>01</strong><span>SEAT. SECURED.</span><small>THAT'S THE IDEA.</small></div></div>
+    <div class="section-row"><div><h2 class="section-title">Find your next experience</h2><div class="section-note">Hand-picked events with seats ready to book</div></div><span class="mono" style="font-size:9px;color:#778590">${events.length} EVENTS <span style="color:var(--lime)">●</span></span></div>
+    <div class="event-toolbar"><div class="filter-pills">${cats.map(category => `<button class="filter-pill ${state.filter===category?'active':''}" data-filter="${category}">${category}</button>`).join('')}</div><label class="search-box"><span>⌕</span><input id="event-search" type="search" placeholder="Search events or venues" value="${escapeText(state.search)}" /></label></div>
+    <div class="event-grid" id="event-grid">${filtered.length ? filtered.map(eventCard).join('') : '<div class="empty-state empty-grid"><div class="empty-icon">⌕</div><h3>No matching events</h3><p>Try another event name or category.</p></div>'}</div>
+    <div class="stats-strip"><div class="stat-card"><div class="stat-label">Events listed</div><div class="stat-value">03</div><div class="stat-foot">Across three categories</div></div><div class="stat-card"><div class="stat-label">Seats still open</div><div class="stat-value">${events.reduce((total,event)=>total+availableCount(event),0)}</div><div class="stat-foot good">Inventory updates in this demo</div></div><div class="stat-card"><div class="stat-label">Your bookings</div><div class="stat-value">${state.bookings.length.toString().padStart(2,'0')}</div><div class="stat-foot">Saved to this browser</div></div><div class="stat-card"><div class="stat-label">Booking nodes</div><div class="stat-value">02</div><div class="stat-foot good">Load-balanced architecture</div></div></div>
+    <div class="below-grid"><section class="info-panel"><div class="panel-top"><h3>Recent activity</h3><button class="text-button" data-view="tickets">See all →</button></div>${recent.length ? recent.map(booking => `<div class="activity-row"><div class="activity-icon">✓</div><div class="activity-copy"><strong>${escapeText(booking.eventTitle)}</strong><span>Seat ${escapeText(booking.seat)} · Booking confirmed</span></div><span class="activity-time">${escapeText(booking.dateLabel)}</span></div>`).join('') : '<div class="activity-row"><div class="activity-icon">✦</div><div class="activity-copy"><strong>Your next ticket is waiting</strong><span>Choose an event to create your first booking.</span></div></div>'}</section><section class="info-panel"><div class="panel-top"><h3>Built for the big rush</h3><span>SMARTTICKET CORE</span></div><div class="activity-row"><div class="activity-icon">↗</div><div class="activity-copy"><strong>Two booking service nodes</strong><span>Requests spread across replicas.</span></div></div><div class="activity-row"><div class="activity-icon">⌑</div><div class="activity-copy"><strong>Seat-level conflict checks</strong><span>One winner when requests collide.</span></div></div></section></div>`;
+}
+
+function renderTickets() {
+  return `<div class="page-head-row"><div><div class="eyebrow">YOUR WALLET</div><h1 class="page-heading">My tickets</h1><p class="subheading">Confirmed bookings made in this browser.</p></div><button class="secondary-button" data-view="discover">＋ Find an event</button></div>
+    ${state.bookings.length ? state.bookings.map(booking => `<article class="ticket-card"><div><div class="eyebrow">SMARTTICKET · CONFIRMED</div><h3>${escapeText(booking.eventTitle)}</h3><p>${escapeText(booking.dateLabel)} · ${escapeText(booking.time)}</p><p>${escapeText(booking.venue)} · Seat ${escapeText(booking.seat)}</p></div><div class="ticket-code">BOOKING ID<strong>${escapeText(booking.id)}</strong><strong>${money(booking.price)}</strong></div></article>`).join('') : `<div class="empty-state"><div class="empty-icon">▤</div><h3>No tickets yet</h3><p>Your confirmed bookings will appear here after checkout.</p><button class="primary-button" data-view="discover">Browse events <span class="arrow">→</span></button></div>`}
+    <div class="notice">Demo note: tickets and seat selections are stored in this browser only. This preview does not contact a payment provider or live booking API.</div>`;
+}
+
+function renderAnalytics() {
+  const values=[32,46,39,61,48,75,64,89,72,96,83,100];
+  return `<div class="page-head-row"><div><div class="eyebrow">SYSTEM OVERVIEW · DEMO METRICS</div><h1 class="page-heading">Live dashboard</h1><p class="subheading">A frontend view of the distributed booking system's key signals.</p></div><span class="demo-badge">HARDCODED SNAPSHOT</span></div>
+    <div class="metric-grid"><div class="metric-card"><div class="metric-label">Booking throughput <span>↗</span></div><div class="metric-value">42.6 <small style="font-size:10px;color:#85929d">req/s</small></div><div class="metric-change">↑ 2.84× vs single node</div></div><div class="metric-card"><div class="metric-label">Seat cache latency <span>◷</span></div><div class="metric-value">4.8 <small style="font-size:10px;color:#85929d">ms</small></div><div class="metric-change">Redis cache-hit result</div></div><div class="metric-card"><div class="metric-label">Active booking nodes <span>⌘</span></div><div class="metric-value">02</div><div class="metric-change">Both demo nodes healthy</div></div><div class="metric-card"><div class="metric-label">Duplicate seats <span>✓</span></div><div class="metric-value">00</div><div class="metric-change">1 winner in hot-seat scenario</div></div></div>
+    <section class="chart-panel"><div class="panel-top"><div><h3>Request volume · last 12 intervals</h3><div class="section-note">Illustrative chart from the project load report</div></div><div class="chart-legend"><span class="legend-item"><i class="legend-color"></i>Bookings</span><span class="legend-item"><i class="legend-color" style="background:var(--teal)"></i>Seat reads</span></div></div><div class="bars">${values.map((value,index)=>`<div class="bar-group"><div class="bar" style="height:${value}%"></div><div class="bar alt" style="height:${Math.max(12,value-19)}%"></div><span class="bar-label">${String(index*2).padStart(2,'0')}:00</span></div>`).join('')}</div><div class="chart-footnote"><span>LOWER LOAD</span><span>SIMULATED TIMELINE · NOT A LIVE TELEMETRY FEED</span><span>PEAK</span></div></section>
+    <div class="below-grid"><section class="info-panel"><div class="panel-top"><h3>Service health</h3><span>DEMO STATE</span></div>${[['Nginx gateway','Port 80 · routing'],['Booking Service 1','Instance A · ready'],['Booking Service 2','Instance B · ready'],['Seat Service','Inventory API · ready'],['Redis + RabbitMQ','Cache and queue · ready']].map(row=>`<div class="activity-row"><div class="status-dot"></div><div class="activity-copy"><strong>${row[0]}</strong><span>${row[1]}</span></div><span class="live-pill">UP</span></div>`).join('')}</section><section class="info-panel"><div class="panel-top"><h3>Recorded load scenarios</h3><span>PROJECT REPORT</span></div><div class="activity-row"><div class="activity-copy"><strong>Single booking node</strong><span>15.0 requests per second</span></div></div><div class="activity-row"><div class="activity-copy"><strong>Two booking nodes</strong><span>42.6 requests per second</span></div></div><div class="activity-row"><div class="activity-copy"><strong>Hot seat · 100 contenders</strong><span>1 confirmed · 99 conflicts</span></div></div></section></div>`;
+}
+
+function renderLab() {
+  return `<div class="page-head-row"><div><div class="eyebrow">DISTRIBUTED SYSTEMS · PLAYGROUND</div><h1 class="page-heading">Concurrency lab</h1><p class="subheading">See how the booking flow handles many users reaching for one seat.</p></div><span class="demo-badge">CLIENT-SIDE DEMO</span></div>
+    <div class="lab-layout"><section class="lab-card"><h3>Hot-seat simulation</h3><p>One event seat. Many requests arrive together. The display below illustrates the project’s documented same-seat scenario; it does not send requests to the backend.</p><div class="scenario"><div><strong>Target seat</strong><div class="section-note">Avengers premiere · Row A</div></div><span>A05</span></div><div class="scenario"><div><strong>Concurrent users</strong><div class="section-note">Compete for one available seat</div></div><span>100</span></div><div class="scenario"><div><strong>Protection</strong><div class="section-note">Redis lock + JPA @Version</div></div><span>OCC</span></div><button id="run-simulation" class="primary-button" style="width:100%;margin-top:8px">Run demo simulation <span class="arrow">→</span></button><div id="run-status" class="run-status"></div></section>
+      <section class="lab-card"><div class="eyebrow">LAST DEMO SCENARIO</div><div style="display:flex;align-items:end;gap:10px;margin:11px 0 14px"><div class="result-number" id="sim-success">01</div><div class="result-label">winning<br>reservation</div></div><div class="result-row"><div class="result-check">✓</div><strong>Seat A05 confirmed</strong><span>1 request</span></div><div class="result-row"><div class="result-check" style="background:#382b2a;color:#efa09a">×</div><strong>Conflict responses</strong><span>99 requests</span></div><div class="result-row"><div class="result-check" style="background:#203039;color:#8cb5f4">◷</div><strong>Average response</strong><span>18.5 ms</span></div><div class="notice">Expected outcome for one seat and 100 contenders. Conflict responses are normal in this scenario and prevent duplicate bookings.</div></section></div>
+    <section class="chart-panel" style="margin-top:15px"><div class="panel-top"><div><h3>What happens behind the scenes</h3><div class="section-note">Simplified from the SmartTicket reservation path</div></div></div><div class="steps-row"><div class="step-box"><span>01</span><strong>Requests arrive</strong><small>Nginx routes to a booking node</small></div><div class="step-connector">→</div><div class="step-box"><span>02</span><strong>Seat lock attempt</strong><small>Redis SET-if-absent gate</small></div><div class="step-connector">→</div><div class="step-box"><span>03</span><strong>Version check</strong><small>MySQL write with @Version</small></div><div class="step-connector">→</div><div class="step-box"><span>04</span><strong>One winner</strong><small>Other requests conflict</small></div></div></section>`;
+}
+
+function renderAdmin() {
+  return `<div class="page-head-row"><div><div class="eyebrow">CONTROL ROOM · PREVIEW</div><h1 class="page-heading">Admin tools</h1><p class="subheading">A compact view of event inventory and demo operations.</p></div><span class="demo-badge">NO SERVER CONNECTION</span></div>
+    <div class="admin-grid"><section class="lab-card"><div class="panel-top"><h3>Event inventory</h3><span>${events.length} SEEDED EVENTS</span></div>${events.map(event=>`<div class="admin-event-row"><strong>${event.title}</strong><span>${availableCount(event)} / ${event.seats} open</span><span class="live-pill">ACTIVE</span></div>`).join('')}<div class="notice">Events and inventory are hardcoded demo data. Changes made here are not written to the project backend.</div></section><section class="lab-card"><h3>Demo environment</h3><p>Reset this browser’s demo bookings and seat choices to restore the initial sample state.</p><div class="scenario"><div><strong>Local bookings</strong><div class="section-note">Saved in localStorage</div></div><span>${state.bookings.length}</span></div><div class="scenario"><div><strong>Seeded events</strong><div class="section-note">Cinema · concert · conference</div></div><span>03</span></div><button id="reset-demo" class="secondary-button" style="width:100%;margin-top:6px">Reset local demo data</button><div class="notice">Admin authentication and changes are not implemented in this frontend-only preview.</div></section></div>`;
+}
+
+function render() {
+  document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
+  document.getElementById('current-section').textContent = sectionNames[state.view];
+  document.getElementById('ticket-count').textContent = state.bookings.length;
+  const renderers = { discover: renderDiscover, tickets: renderTickets, analytics: renderAnalytics, lab: renderLab, admin: renderAdmin };
+  document.getElementById('main-content').innerHTML = renderers[state.view]();
+  document.getElementById('overlay-root').innerHTML = state.activeEvent ? renderBookingModal() : '';
+}
+
+function renderBookingModal(success=false) {
+  const event = state.activeEvent;
+  if (!event) return '';
+  if (success && state.activeBooking) {
+    const booking = state.activeBooking;
+    return `<div class="overlay" data-overlay><section class="modal" role="dialog" aria-modal="true" aria-labelledby="success-title"><div class="modal-head"><div><div class="modal-title">Booking confirmed</div><div class="modal-subtitle">Your seat is ready. Enjoy the event.</div></div><button class="close-button" data-close-modal aria-label="Close">×</button></div><div class="success-state"><div class="success-check">✓</div><h2 id="success-title">You're going!</h2><p>A confirmation has been created in this browser demo.</p><div class="receipt"><div class="receipt-row"><span>Event</span><strong>${escapeText(booking.eventTitle)}</strong></div><div class="receipt-row"><span>Date</span><strong>${escapeText(booking.dateLabel)} · ${escapeText(booking.time)}</strong></div><div class="receipt-row"><span>Seat</span><strong>${escapeText(booking.seat)}</strong></div><div class="receipt-row"><span>Booking ID</span><strong>${escapeText(booking.id)}</strong></div><div class="receipt-row"><span>Total paid</span><strong>${money(booking.price)}</strong></div></div><button class="primary-button" data-finish-booking>Done <span class="arrow">→</span></button></div></section></div>`;
+  }
+  const currentBooked = bookedSeats(event);
+  const seatCodes = Array.from({length:event.seats},(_,index)=>`${String.fromCharCode(65+Math.floor(index/8))}${String(index%8+1).padStart(2,'0')}`);
+  const seatGrid = seatCodes.map(seat => {
+    const isBooked=currentBooked.includes(seat); const isSelected=state.selectedSeat===seat;
+    return `<button class="seat ${isBooked?'booked':''} ${isSelected?'selected':''}" ${isBooked?'disabled':''} data-seat="${seat}" aria-label="Seat ${seat}${isBooked?', booked':isSelected?', selected':', available'}">${seat}</button>`;
+  }).join('');
+  return `<div class="overlay" data-overlay><section class="modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><div class="modal-head"><div><div class="modal-title" id="booking-title">Choose your seat</div><div class="modal-subtitle">${escapeText(event.title)} · ${event.date}, 2026 at ${event.time}</div></div><button class="close-button" data-close-modal aria-label="Close">×</button></div><div class="modal-content"><div class="booking-layout"><div><div class="screen-label">SCREEN / STAGE</div><div class="seat-grid">${seatGrid}</div><div class="seat-legend"><span class="seat-key"><i class="seat-swatch"></i> Available</span><span class="seat-key"><i class="seat-swatch selected"></i> Selected</span><span class="seat-key"><i class="seat-swatch booked"></i> Booked</span></div></div><aside class="booking-summary"><div class="summary-poster">${escapeText(event.category.toUpperCase())} · ${event.date} 2026</div><div class="summary-label">YOUR EVENT</div><div class="summary-value">${escapeText(event.title)}</div><div class="summary-label">VENUE</div><div class="summary-value">${escapeText(event.venue)}</div><div class="summary-divider"></div><div class="summary-total"><span>Selected seat</span><strong>${state.selectedSeat || '—'}</strong></div><div class="summary-total"><span>Ticket price</span><strong>${money(event.price)}</strong></div><button class="primary-button confirm-button" data-confirm-booking ${state.selectedSeat?'':'disabled'}>Confirm booking <span class="arrow">→</span></button><div class="summary-note">Demo checkout only. No payment is collected; the booking is stored locally in your browser.</div></aside></div></div></section></div>`;
+}
+
+function openBooking(eventId) { state.activeEvent=eventById(eventId); state.selectedSeat=null; state.activeBooking=null; render(); }
+function closeBooking() { state.activeEvent=null; state.selectedSeat=null; state.activeBooking=null; render(); }
+function confirmBooking() {
+  if (!state.activeEvent || !state.selectedSeat) return;
+  const event=state.activeEvent;
+  const booking={ id:`ST-${Date.now().toString().slice(-7)}`, eventId:event.id, eventTitle:event.title, venue:event.venue, dateLabel:`${event.weekday}, ${event.date} 2026`, time:event.time, seat:state.selectedSeat, price:event.price, createdAt:new Date().toISOString() };
+  state.bookings.unshift(booking); localStorage.setItem('smartticket_demo_bookings',JSON.stringify(state.bookings));
+  const seatStore=loadJson('smartticket_demo_seats',{}); seatStore[event.id]=[...(seatStore[event.id]||[]),state.selectedSeat]; localStorage.setItem('smartticket_demo_seats',JSON.stringify(seatStore));
+  state.activeBooking=booking; render();
+}
+function showToast(message) { const toast=document.createElement('div'); toast.className='toast'; toast.textContent=message; document.body.appendChild(toast); setTimeout(()=>toast.remove(),2600); }
+
+document.addEventListener('click',event=>{
+  const view=event.target.closest('[data-view]'); if(view){event.preventDefault();state.view=view.dataset.view;state.activeEvent=null;render();return;}
+  const filter=event.target.closest('[data-filter]');if(filter){state.filter=filter.dataset.filter;render();return;}
+  const eventButton=event.target.closest('[data-event]');if(eventButton){openBooking(eventButton.dataset.event);return;}
+  const seat=event.target.closest('[data-seat]');if(seat && !seat.disabled){state.selectedSeat=state.selectedSeat===seat.dataset.seat?null:seat.dataset.seat;render();return;}
+  if(event.target.closest('[data-confirm-booking]')){confirmBooking();return;}
+  if(event.target.closest('[data-close-modal]')||event.target.matches('[data-overlay]')){closeBooking();return;}
+  if(event.target.closest('[data-finish-booking]')){state.activeEvent=null;state.selectedSeat=null;state.activeBooking=null;state.view='tickets';render();showToast('Ticket added to My tickets');return;}
+  if(event.target.closest('[data-scroll-events]')){document.getElementById('event-grid')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(event.target.closest('#reset-demo')){localStorage.removeItem('smartticket_demo_bookings');localStorage.removeItem('smartticket_demo_seats');state.bookings=[];render();showToast('Local demo data has been reset');return;}
+  if(event.target.closest('#run-simulation')){const button=event.target.closest('#run-simulation');button.disabled=true;button.textContent='Requests competing…';const status=document.getElementById('run-status');if(status)status.textContent='Dispatching 100 demo requests to one seat';setTimeout(()=>{const current=document.getElementById('run-simulation');if(current){current.disabled=false;current.innerHTML='Run demo simulation <span class="arrow">→</span>';}const result=document.getElementById('sim-success');if(result)result.textContent='01';const note=document.getElementById('run-status');if(note)note.textContent='Complete · 1 winner · 99 conflicts · no duplicate seat';showToast('Demo complete: one reservation wins');},1100);return;}
+});
+document.addEventListener('input',event=>{if(event.target.id==='event-search'){state.search=event.target.value;const grid=document.getElementById('event-grid');const filtered=events.filter(item=>(state.filter==='All events'||item.category===state.filter)&&`${item.title} ${item.venue} ${item.city}`.toLowerCase().includes(state.search.toLowerCase()));grid.innerHTML=filtered.length?filtered.map(eventCard).join(''):'<div class="empty-state empty-grid"><div class="empty-icon">⌕</div><h3>No matching events</h3><p>Try another event name or category.</p></div>';}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&state.activeEvent)closeBooking();});
+render();

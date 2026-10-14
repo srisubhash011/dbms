@@ -44,4 +44,11 @@ public class BookingController {
         log.info("[{}] Received GET /api/bookings/{}", instanceId, id);
         return ResponseEntity.ok(bookingService.getBookingById(id));
     }
+
+    @PutMapping("/bookings/{id}/cancel")
+    public ResponseEntity<Booking> cancelBooking(@PathVariable Long id) {
+        log.info("[{}] Received PUT /api/bookings/{}/cancel", instanceId, id);
+        Booking cancelled = bookingService.cancelBooking(id);
+        return ResponseEntity.ok(cancelled);
+    }
 }

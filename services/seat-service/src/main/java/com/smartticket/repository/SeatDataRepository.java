@@ -187,6 +187,36 @@ public class SeatDataRepository {
         }
     }
 
+    @Transactional
+    public boolean releaseSeatAtomically(Long eventId, String seatNumber) {
+        Seat seat = seatJpaRepository.findByEventIdAndSeatNumber(eventId, seatNumber)
+                .orElseThrow(() -> new BookingException("Seat " + seatNumber + " not found for event " + eventId));
+
+        if (seat.getStatus() == Seat.SeatStatus.AVAILABLE) {
+            log.info("[SEAT] Seat {} is already AVAILABLE", seatNumber);
+            return true;
+        }
+
+        // 1. Release in MySQL
+        seat.setStatus(Seat.SeatStatus.AVAILABLE);
+        seatJpaRepository.save(seat);
+
+        Event event = seat.getEvent();
+        event.setAvailableSeats(Math.min(event.getTotalSeats(), event.getAvailableSeats() + 1));
+        eventJpaRepository.save(event);
+        log.info("[MYSQL] Seat {} released to AVAILABLE (JPA Version: {}). Event available seats: {}", seatNumber, seat.getVersion(), event.getAvailableSeats());
+
+        // 2. Invalidate / Purge Redis Cache for this event so users immediately see it available
+        try {
+            redisTemplate.delete(SEATS_CACHE_PREFIX + eventId);
+            log.info("[REDIS] Cache purged for event={} after seat release", eventId);
+        } catch (Exception ex) {
+            log.warn("[REDIS] Failed to purge seats cache after release: {}", ex.getMessage());
+        }
+
+        return true;
+    }
+
     public String getCacheMetrics() {
         long total = cacheHits + cacheMisses;
         double ratio = total > 0 ? ((double) cacheHits / total) * 100.0 : 0.0;

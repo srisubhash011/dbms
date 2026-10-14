@@ -10,7 +10,7 @@ services:
       MYSQL_DATABASE: smartticketdb
       MYSQL_ROOT_PASSWORD: root
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
     networks:
@@ -171,7 +171,7 @@ services:
     networks:
       - smartticket-net
 
-  # Frontend Web App (React Vite)
+  # Frontend Web App (React Vite) - Port 3000 (User Portal)
   frontend:
     build:
       context: ./frontend
@@ -179,6 +179,21 @@ services:
     restart: always
     ports:
       - "3000:80"
+    environment:
+      VITE_API_BASE_URL: http://localhost/api
+    depends_on:
+      - nginx
+    networks:
+      - smartticket-net
+
+  # Testing & QA Dashboard Web App - Port 3001 (Engineering & QA Hub)
+  testing-dashboard:
+    build:
+      context: ./testing-dashboard
+    container_name: smartticket_testing_dashboard
+    restart: always
+    ports:
+      - "3001:80"
     environment:
       VITE_API_BASE_URL: http://localhost/api
     depends_on:

@@ -1,6 +1,6 @@
 # SmartTicket - Distributed Ticket Booking & Reservation Application
 
-SmartTicket is an enterprise-grade **Distributed Ticket Booking Application** engineered for college Distributed Systems projects. It demonstrates Microservices Architecture, Containerization, Load Balancing, Horizontal Scalability, Redis Caching, Asynchronous Messaging, Optimistic Concurrency Control (OCC), and Service Fault Tolerance.
+SmartTicket is an enterprise-grade **Distributed Ticket Booking Application** engineered for college Distributed Systems projects. It demonstrates Microservices Architecture, Containerization, Load Balancing, Horizontal Scalability, Redis Caching, Asynchronous Messaging, Optimistic Concurrency Control (OCC), and Service Fault Tolerance
 
 ---
 
